@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SecurityEvent",
+  "description": "Standard security event record adopted by all Colossus 2 repos",
+  "type": "object",
+  "required": ["event_id", "timestamp", "event_type", "severity", "source", "actor"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "event_type": {
+      "type": "string",
+      "enum": ["access_granted", "access_denied", "breach_attempt", "policy_violation", "agent_action", "physical_access", "network_anomaly"]
+    },
+    "severity": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+    "source": { "type": "string", "description": "Originating system or zone" },
+    "actor": { "type": "string", "description": "Identity performing the action" },
+    "resource": { "type": "string", "description": "Target resource or rack" },
+    "outcome": { "type": "string", "enum": ["allowed", "blocked", "escalated", "unknown"] },
+    "metadata": { "type": "object" }
+  }
+}
