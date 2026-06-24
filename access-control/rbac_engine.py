@@ -88,6 +88,7 @@ class Principal:
     role: Role
     mfa_verified: bool = False
     valid_until: float = field(default_factory=lambda: time.time() + 3600)
+    clearance_level: int = 1
 
     def is_session_valid(self) -> bool:
         return time.time() < self.valid_until
