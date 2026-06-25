@@ -1,11 +1,11 @@
 # 🔱 Double Helix: xAI Colossus Security
 
-> Alpha (What) + Omega (How) = Sovereign security for 1.5GW AI supercomputer.
+> Alpha (What) + Omega (How) = Autonomous security for 1.5GW AI supercomputer.
 
 ```
 BINDING: DOUBLE_HELIX:COLOSSUS_SECURITY v1.0
 PAIR:    Alpha (security intelligence) ←→ Omega (incident response + CI)
-MANTRA:  Two strands. One sovereign security DNA.
+MANTRA:  Two strands. One autonomous security DNA.
 ```
 
 ## 🧬 Alpha Strand (What — Domain Logic)

@@ -2,7 +2,7 @@
 """
 APEX GHOST-EMBER — Physical Perimeter Security
 ================================================
-GlacierEQ Sovereign Stack | Glacier-Thermal v1.6
+GlacierEQ APEX Stack | Glacier-Thermal v1.6
 
 Autonomous physical security logic for Colossus halls.
 Links biometric events to digital twin telemetry.
@@ -24,7 +24,7 @@ class PerimeterEvent:
     actor_id: str
 
 class GhostEmberPerimeter:
-    """The physical lock for the GlacierEQ Sovereign Stack."""
+    """The physical lock for the GlacierEQ APEX Stack."""
 
     def __init__(self):
         self.lock_status = "SECURE"

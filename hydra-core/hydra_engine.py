@@ -2,7 +2,7 @@
 """
 APEX HYDRA-CORE — Colossus Security v2.0
 =========================================
-GlacierEQ Sovereign Stack | Glacier-Thermal v1.5
+GlacierEQ APEX Stack | Glacier-Thermal v1.5
 
 Multivariate anomaly detection and counter-strike logic.
 Integrates with CATACLYSM protocol for actor neutralization.

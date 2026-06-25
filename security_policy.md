@@ -1,5 +1,5 @@
 # xAI Colossus 2 — Master Security Policy
-**GlacierEQ Sovereign Stack | APEX Architecture**
+**GlacierEQ APEX Stack | APEX Architecture**
 **Classification:** INTERNAL — Infrastructure Security
 
 ---

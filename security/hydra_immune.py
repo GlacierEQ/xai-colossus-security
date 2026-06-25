@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Colossus Security — Hydra Immune Response
-GlacierEQ Sovereign Stack
+GlacierEQ APEX Stack
 
 Multi-head threat detection with autonomous mitigation.
 Implements the Subsystem Interface Contract: tick() + summary().

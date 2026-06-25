@@ -6,7 +6,7 @@ import base64
 from datetime import datetime
 from typing import Dict, List, Optional
 
-# APEX Sovereign Security Stack
+# APEX Autonomous Security Stack
 # Part of xai-colossus-security
 
 class QuantumVaultInterface:
