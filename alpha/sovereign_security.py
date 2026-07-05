@@ -1,3 +1,4 @@
+# Alpha (What) — Pure Physics | Omega (How) — Controllers | The Answer is 42.
 import hashlib
 import hmac
 import os
