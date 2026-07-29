@@ -1,104 +1,46 @@
-# 🛡️ xAI Colossus Security — Threat Detection & Response
+# xAI Colossus Security — Zero-Trust Datacenter Security 🛡️
 
-[![Tests](https://img.shields.io/badge/tests-6%20passing-brightgreen.svg)](https://github.com/GlacierEQ/xai-colossus-security)
-[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
-[![Pro-Code](https://img.shields.io/badge/Pro--Code-7--gate%20audit-brightgreen.svg)](PRO_CODE_AUDIT.md)
+> **Zero-trust security policy manager and access control engine for xAI Colossus GPU clusters.**
 
-> Autonomous security for a **1.5GW AI supercomputer**.
-> Hydra immune response · Ghost-ember perimeter · SBOM chain · Auto-mitigation.
+[![Python](https://img.shields.io/badge/Python-3.9+-blue)]()
+[![Domain](https://img.shields.io/badge/Domain-Datacenter%20Security-red)]()
 
 ---
 
-## Architecture
+## 🎯 For Recruiters & Hiring Managers
 
-```
-┌─────────────────────────────────────────┐
-│       SECURITY ORCHESTRATOR             │
-│  tick-driven · auto-mitigate · monitor  │
-└──────────┬──────────────────────────────┘
-           │
-    ┌──────┼──────┬──────┬──────┐
-    ▼      ▼      ▼      ▼      ▼
-  HYDRA  GHOST   SBOM   INCIDENT  RBAC
-  IMMUNE EMBER  CHAIN  AUTORESPONSE
-```
+This repository implements the **xAI Colossus Security Engine** — enforcing zero-trust access control, network segmentation, and cryptographic verification across cluster nodes. It demonstrates:
 
-## Quick Start
+- **Dynamic network isolation** containing compromised compute nodes automatically
+- **mTLS certificate authority management** for secure intra-cluster gRPC communication
+- **Role-based access control (RBAC)** restricting node admin privileges
+- **Security audit trail logging** recording all administrative actions immutably
 
-```python
-from security.hydra_immune import HydraImmune
-import asyncio
+**Why this matters**: Multi-tenant GPU datacenters hosting proprietary weights require strict security boundaries to prevent unauthorized model extraction or lateral network movement.
 
-hydra = HydraImmune()
-zones = {"Z001": {"suspicious_activity": True}}
+---
 
-result = asyncio.run(hydra.tick(zones, tick_num=1))
-print(f"Threat level: {result['threat_level']}, Mitigated: {result['mitigated_count']}")
-```
+## 🔬 For Engineers & Technical Reviewers
 
-## Threat Types
+### Core Components
 
-| Type | Detection | Mitigation |
-|------|-----------|------------|
-| **Network Intrusion** | Anomaly detection | BLOCK_IP |
-| **Unauthorized Access** | Credential monitoring | REVOKE_CREDENTIALS |
-| **Data Exfiltration** | Egress monitoring | BLOCK_EGRESS |
-| **Firmware Tamper** | Integrity checks | ROLLBACK_FIRMWARE |
-| **Physical Breach** | Sensor fusion | LOCKDOWN_ZONE |
-| **DDoS** | Traffic analysis | RATE_LIMIT |
-| **Crypto Mining** | Process monitoring | KILL_PROCESS |
-| **Supply Chain** | Dependency scanning | ISOLATE_COMPONENT |
+| Component | Language | Purpose |
+|---|---|---|
+| `src/security_engine.py` | Python | Policy manager, mTLS coordinator, audit logger |
+| `tests/` | Python | Security policy enforcement test suite |
 
-## Threat Levels
+---
 
-| Level | Score | Action |
-|-------|-------|--------|
-| NONE | 0.0 | No action |
-| LOW | 0.25 | Log and monitor |
-| MEDIUM | 0.50 | Alert operators |
-| HIGH | 0.75 | Auto-mitigate |
-| CRITICAL | 1.00 | Full lockdown |
+## 🤖 ML/AI & Programmatic Mesh Integration
 
-## Double Helix
+- **MCP Tool**: `cluster_security_status()` — security posture queryable by admin agents
+- **Mastermind Sidecar**: Core security node on APEX Highway mesh
+- **SHA-256 Integrity**: Tracked in `.integrity/file_hashes.json`
 
-**Alpha (What)**: `security/` — Hydra immune, ghost-ember, SBOM chain
-**Omega (How)**: `orchestrator/` — Security orchestrator, incident response
+---
 
-See [`HELIX.md`](HELIX.md) for architecture details.
-
-## Testing
+## ⚡ Quick Start
 
 ```bash
-python -m pytest tests/ -v
+python3 src/security_engine.py
 ```
-
-**6 tests** passing: threat detection, auto-mitigation, health tracking, summary structure.
-
-## Scale
-
-| Metric | Value |
-|--------|-------|
-| Threat types | 8 |
-| Threat levels | 5 |
-| Auto-mitigation | Yes |
-| Max active threats | 100 |
-| Threat TTL | 1 hour |
-| Tick interval | 500ms |
-
----
-
-> *"Zero-trust at every boundary. No threat unmitigated."*
-
----
-
-## Fleet ops (transparent)
-
-This repo may include **`.integrity/`** (SHA-256 baselines / watchdog) and/or a health sidecar.
-These are **documented multi-repo fleet operations**, not covert implants.
-
-See [SECURITY_AND_FLEET_OPS.md](SECURITY_AND_FLEET_OPS.md) and
-`~/GlacierEQ_Swarm/state/PORTFOLIO_SHADOW_AND_GAUNTLET.md`.
-
-## Helix strand
-
-See [HELIX_STRAND.md](HELIX_STRAND.md) — piston/spiral role in the portfolio double helix.
