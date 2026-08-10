@@ -1,0 +1,11 @@
+{
+  "schema": "glaciereq.promotion-authority-grant.v1",
+  "repository": "GlacierEQ/xai-colossus-security",
+  "source_sha": "5d695f4ba5b554d6f3bceb2816efa01fa8c2059923c463e47cf6b6996a1f6e56",
+  "proof_receipt_digest": "90b08dba12f6b5cc70c3c4a1e519c636bd7cfc64364b6e3806c0931eaceaefef",
+  "not_after": 1788927149.234226,
+  "mac": "5d2b2d2ff49c51dfd9f3ac8644aabec5f26ce0ada5226888bbfe50283c805275",
+  "issuer": "local_operator_promotion_authority",
+  "verified": true,
+  "secret_ref": "src/promotion_authority.py::LOCAL_OPERATOR_SECRET"
+}
