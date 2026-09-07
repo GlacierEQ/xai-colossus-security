@@ -1,23 +1,13 @@
 # Omega (How) — Controllers | Alpha (What) — Pure Physics | 1337.
 #!/usr/bin/env python3
-"""
-COLOSSUS SECURITY EVENT BUS
-============================
-Physical security event bus with structured event emission,
-Supabase audit log persistence, and event classification.
-
-Implements a publish/subscribe pattern for security-relevant events
-across the Colossus infrastructure. Every event is classified by
-severity, correlated with a trace ID, and durably persisted to
-Supabase for audit compliance.
-"""
+"""Colossus security event bus with receipt-truthful durable persistence."""
 
 from __future__ import annotations
 
 import json
 import logging
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence
@@ -25,50 +15,41 @@ from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence
 logger = logging.getLogger("COLOSSUS.EVENT_BUS")
 
 
-# ---------------------------------------------------------------------------
-# Event classification
-# ---------------------------------------------------------------------------
-
 class EventSeverity(Enum):
-    INFO      = "info"
-    WARNING   = "warning"
-    CRITICAL  = "critical"
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
     EMERGENCY = "emergency"
 
 
 class EventCategory(Enum):
-    PHYSICAL_ACCESS   = "physical_access"
-    PERIMETER_BREACH  = "perimeter_breach"
-    THERMAL_EVENT     = "thermal_event"
-    POWER_EVENT       = "power_event"
-    COOLING_EVENT     = "cooling_event"
-    NETWORK_EVENT     = "network_event"
-    HARDWARE_FAULT    = "hardware_fault"
-    CRYPTO_EVENT      = "crypto_event"
-    POLICY_VIOLATION  = "policy_violation"
-    SYSTEM_LIFECYCLE  = "system_lifecycle"
+    PHYSICAL_ACCESS = "physical_access"
+    PERIMETER_BREACH = "perimeter_breach"
+    THERMAL_EVENT = "thermal_event"
+    POWER_EVENT = "power_event"
+    COOLING_EVENT = "cooling_event"
+    NETWORK_EVENT = "network_event"
+    HARDWARE_FAULT = "hardware_fault"
+    CRYPTO_EVENT = "crypto_event"
+    POLICY_VIOLATION = "policy_violation"
+    SYSTEM_LIFECYCLE = "system_lifecycle"
 
 
 class EventDisposition(Enum):
     ACKNOWLEDGED = "acknowledged"
     INVESTIGATING = "investigating"
-    RESOLVED     = "resolved"
-    ESCALATED    = "escalated"
-    DISMISSED    = "dismissed"
+    RESOLVED = "resolved"
+    ESCALATED = "escalated"
+    DISMISSED = "dismissed"
 
 
-# ---------------------------------------------------------------------------
-# Persistence protocol (pluggable)
-# ---------------------------------------------------------------------------
+class EventPersistenceError(RuntimeError):
+    """Raised when a security event cannot be durably persisted."""
+
 
 class AuditLogSink(Protocol):
-    """Any durable sink that can persist security events."""
     def persist(self, event: "SecurityEvent") -> bool: ...
 
-
-# ---------------------------------------------------------------------------
-# Data types
-# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class SecurityEvent:
@@ -107,18 +88,8 @@ class EventSubscription:
     source_filter: Optional[str] = None
 
 
-# ---------------------------------------------------------------------------
-# Supabase audit log sink
-# ---------------------------------------------------------------------------
-
 class SupabaseAuditLogSink:
-    """
-    Persists SecurityEvents to a Supabase table via the REST API.
-
-    Configuration is passed at construction time. The sink performs
-    a single INSERT per event. Failures are logged but do not raise
-    (fire-and-forget with observability).
-    """
+    """Persist SecurityEvents to Supabase REST without inventing write success."""
 
     def __init__(
         self,
@@ -131,11 +102,18 @@ class SupabaseAuditLogSink:
         self._key = supabase_key
         self._table = table_name
         self._client = http_client
-        self._persisted_count: int = 0
-        self._failure_count: int = 0
+        self._persisted_count = 0
+        self._failure_count = 0
 
     def persist(self, event: SecurityEvent) -> bool:
-        payload = event.to_dict()
+        if self._client is None:
+            self._failure_count += 1
+            logger.error(
+                "SUPABASE PERSIST BLOCKED: event=%s reason=http_client_unavailable",
+                event.event_id,
+            )
+            return False
+
         endpoint = f"{self._url}/rest/v1/{self._table}"
         headers = {
             "apikey": self._key,
@@ -143,18 +121,9 @@ class SupabaseAuditLogSink:
             "Content-Type": "application/json",
             "Prefer": "return=minimal",
         }
-
         try:
-            if self._client is not None:
-                resp = self._client.post(endpoint, json=payload, headers=headers)
-                success = resp.status_code < 400
-            else:
-                logger.debug(
-                    "SUPABASE PERSIST (no HTTP client): %s → %s",
-                    event.event_id, json.dumps(payload, default=str)[:200],
-                )
-                success = True
-
+            response = self._client.post(endpoint, json=event.to_dict(), headers=headers)
+            success = 200 <= response.status_code < 300
             if success:
                 self._persisted_count += 1
             else:
@@ -162,32 +131,21 @@ class SupabaseAuditLogSink:
                 logger.error(
                     "SUPABASE PERSIST FAILED: event=%s status=%s",
                     event.event_id,
-                    getattr(resp, "status_code", "unknown"),
+                    getattr(response, "status_code", "unknown"),
                 )
             return success
-
         except Exception as exc:
             self._failure_count += 1
-            logger.error(
-                "SUPABASE PERSIST ERROR: event=%s error=%s",
-                event.event_id, exc,
-            )
+            logger.error("SUPABASE PERSIST ERROR: event=%s error=%s", event.event_id, exc)
             return False
 
     @property
     def stats(self) -> Dict[str, int]:
-        return {
-            "persisted": self._persisted_count,
-            "failed": self._failure_count,
-        }
+        return {"persisted": self._persisted_count, "failed": self._failure_count}
 
-
-# ---------------------------------------------------------------------------
-# In-memory audit log sink (for testing / fallback)
-# ---------------------------------------------------------------------------
 
 class InMemoryAuditLogSink:
-    """Non-durable in-memory sink for testing and local development."""
+    """Non-durable sink for tests and explicitly local development."""
 
     def __init__(self) -> None:
         self._events: List[SecurityEvent] = []
@@ -204,48 +162,31 @@ class InMemoryAuditLogSink:
         return {"persisted": len(self._events), "failed": 0}
 
 
-# ---------------------------------------------------------------------------
-# SecurityEventBus
-# ---------------------------------------------------------------------------
-
 class SecurityEventBus:
-    """
-    Central event bus for physical security events.
-
-    Responsibilities:
-        - Emit classified SecurityEvents with trace IDs.
-        - Route events to registered subscribers based on category/severity.
-        - Persist every event to a pluggable AuditLogSink (Supabase by default).
-        - Maintain an in-memory buffer for recent events (configurable depth).
-
-    Zero-trust: every emission is persisted before subscriber dispatch.
-    """
+    """Persist-before-dispatch event bus with explicit failure semantics."""
 
     def __init__(
         self,
         sinks: Optional[Sequence[AuditLogSink]] = None,
         buffer_size: int = 1000,
+        require_persistence: bool = True,
     ):
-        self._sinks: List[AuditLogSink] = list(sinks or [])
+        if buffer_size <= 0:
+            raise ValueError("buffer_size must be positive")
+        self._sinks = list(sinks or [])
         self._subscriptions: List[EventSubscription] = []
         self._event_buffer: List[SecurityEvent] = []
         self._buffer_size = buffer_size
-        self._event_counter: int = 0
-        self._emitted_count: int = 0
-
-    # ------------------------------------------------------------------
-    # Sink management
-    # ------------------------------------------------------------------
+        self._event_counter = 0
+        self._emitted_count = 0
+        self._persistence_failure_count = 0
+        self._require_persistence = require_persistence
 
     def add_sink(self, sink: AuditLogSink) -> None:
         self._sinks.append(sink)
 
     def remove_sink(self, sink: AuditLogSink) -> None:
-        self._sinks = [s for s in self._sinks if s is not sink]
-
-    # ------------------------------------------------------------------
-    # Subscription management
-    # ------------------------------------------------------------------
+        self._sinks = [item for item in self._sinks if item is not sink]
 
     def subscribe(
         self,
@@ -254,26 +195,24 @@ class SecurityEventBus:
         callback: Callable[[SecurityEvent], None],
         source_filter: Optional[str] = None,
     ) -> EventSubscription:
-        sub = EventSubscription(
+        subscription = EventSubscription(
             subscription_id=f"SUB-{uuid.uuid4().hex[:8].upper()}",
             categories=frozenset(categories),
             min_severity=min_severity,
             callback=callback,
             source_filter=source_filter,
         )
-        self._subscriptions.append(sub)
-        return sub
+        self._subscriptions.append(subscription)
+        return subscription
 
     def unsubscribe(self, subscription_id: str) -> bool:
         before = len(self._subscriptions)
         self._subscriptions = [
-            s for s in self._subscriptions if s.subscription_id != subscription_id
+            subscription
+            for subscription in self._subscriptions
+            if subscription.subscription_id != subscription_id
         ]
         return len(self._subscriptions) < before
-
-    # ------------------------------------------------------------------
-    # Core emission
-    # ------------------------------------------------------------------
 
     def emit(
         self,
@@ -298,23 +237,36 @@ class SecurityEventBus:
             actor_id=actor_id,
         )
 
-        for sink in self._sinks:
-            sink.persist(event)
+        results = [sink.persist(event) for sink in self._sinks]
+        persistence_ok = bool(results) and all(results)
+        if self._require_persistence and not persistence_ok:
+            self._persistence_failure_count += 1
+            logger.error(
+                "EVENT NOT DISPATCHED: event=%s persistence_results=%s",
+                event.event_id,
+                json.dumps(results),
+            )
+            raise EventPersistenceError(
+                f"event {event.event_id} was not durably persisted to every configured sink"
+            )
 
         self._event_buffer.append(event)
         if len(self._event_buffer) > self._buffer_size:
-            self._event_buffer = self._event_buffer[-self._buffer_size:]
+            self._event_buffer = self._event_buffer[-self._buffer_size :]
 
         self._emitted_count += 1
         self._dispatch(event)
-
         logger.log(
-            logging.WARNING if severity in (EventSeverity.CRITICAL, EventSeverity.EMERGENCY)
+            logging.WARNING
+            if severity in (EventSeverity.CRITICAL, EventSeverity.EMERGENCY)
             else logging.INFO,
             "EVENT %s [%s] %s | %s | %s",
-            event.event_id, severity.value.upper(), category.value, source, title,
+            event.event_id,
+            severity.value.upper(),
+            category.value,
+            source,
+            title,
         )
-
         return event
 
     def _dispatch(self, event: SecurityEvent) -> None:
@@ -324,26 +276,23 @@ class SecurityEventBus:
             EventSeverity.CRITICAL: 2,
             EventSeverity.EMERGENCY: 3,
         }
-        min_val = severity_order[event.severity]
-
-        for sub in self._subscriptions:
-            if event.category not in sub.categories:
+        event_rank = severity_order[event.severity]
+        for subscription in self._subscriptions:
+            if event.category not in subscription.categories:
                 continue
-            if severity_order[sub.min_severity] > min_val:
+            if severity_order[subscription.min_severity] > event_rank:
                 continue
-            if sub.source_filter and event.source != sub.source_filter:
+            if subscription.source_filter and event.source != subscription.source_filter:
                 continue
             try:
-                sub.callback(event)
+                subscription.callback(event)
             except Exception as exc:
                 logger.error(
                     "SUB DISPATCH FAILED: sub=%s event=%s error=%s",
-                    sub.subscription_id, event.event_id, exc,
+                    subscription.subscription_id,
+                    event.event_id,
+                    exc,
                 )
-
-    # ------------------------------------------------------------------
-    # Query API
-    # ------------------------------------------------------------------
 
     def get_recent_events(
         self,
@@ -353,74 +302,37 @@ class SecurityEventBus:
     ) -> List[SecurityEvent]:
         result = self._event_buffer
         if severity is not None:
-            result = [e for e in result if e.severity == severity]
+            result = [event for event in result if event.severity == severity]
         if category is not None:
-            result = [e for e in result if e.category == category]
+            result = [event for event in result if event.category == category]
         return result[-limit:]
 
     def get_event_by_id(self, event_id: str) -> Optional[SecurityEvent]:
-        for e in reversed(self._event_buffer):
-            if e.event_id == event_id:
-                return e
-        return None
+        return next(
+            (event for event in reversed(self._event_buffer) if event.event_id == event_id),
+            None,
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         return {
             "emitted_count": self._emitted_count,
+            "persistence_failure_count": self._persistence_failure_count,
             "buffer_size": len(self._event_buffer),
             "subscription_count": len(self._subscriptions),
             "sink_count": len(self._sinks),
+            "require_persistence": self._require_persistence,
         }
 
 
-# ---------------------------------------------------------------------------
-# CLI smoke test
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-
-    memory_sink = InMemoryAuditLogSink()
-    bus = SecurityEventBus(sinks=[memory_sink])
-
-    def on_critical(event: SecurityEvent) -> None:
-        print(f"  [HANDLER] Critical event received: {event.title}")
-
-    bus.subscribe(
-        categories=[EventCategory.PERIMETER_BREACH, EventCategory.PHYSICAL_ACCESS],
-        min_severity=EventSeverity.WARNING,
-        callback=on_critical,
-    )
-
-    print("--- Emitting events ---")
+    logging.basicConfig(level=logging.INFO)
+    sink = InMemoryAuditLogSink()
+    bus = SecurityEventBus(sinks=[sink])
     bus.emit(
         severity=EventSeverity.INFO,
         category=EventCategory.PHYSICAL_ACCESS,
-        source="biometric-mantrap-01",
-        title="Authorized entry via iris scan",
-        detail={"badge_id": "EMP-4412", "zone": "compute_floor"},
-        actor_id="EMP-4412",
+        source="local-smoke-test",
+        title="Event bus smoke test",
+        detail={"mode": "local"},
     )
-
-    bus.emit(
-        severity=EventSeverity.CRITICAL,
-        category=EventCategory.PERIMETER_BREACH,
-        source="thermal-cam-07",
-        title="Unauthorized thermal signature at perimeter fence",
-        detail={"zone": "north_fence", "temp_delta": "+12°C"},
-    )
-
-    bus.emit(
-        severity=EventSeverity.EMERGENCY,
-        category=EventCategory.THERMAL_EVENT,
-        source="gpu-rack-a1",
-        title="GPU thermal runaway detected",
-        detail={"rack": "A1", "peak_temp": 97.3, "threshold": 85.0},
-    )
-
-    print(f"\nBus stats: {bus.get_stats()}")
-    print(f"Sink stats: {memory_sink.stats}")
-    print(f"Recent events: {len(bus.get_recent_events())}")
+    print(json.dumps(bus.get_stats(), indent=2, sort_keys=True))
